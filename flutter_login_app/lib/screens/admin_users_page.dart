@@ -12,7 +12,9 @@ class AdminUsersPage extends StatefulWidget {
 
 class _AdminUsersPageState extends State<AdminUsersPage> {
   final String baseUrl = "http://10.0.2.2:5000";
+  final TextEditingController searchController = TextEditingController();
   List<dynamic> users = [];
+  List<dynamic> filteredUsers = [];
   bool isLoading = true;
 
   @override
@@ -21,13 +23,18 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     fetchUsers();
   }
 
-  Future<void> fetchUsers() async {
+  Future<void> fetchUsers([String query = '']) async {
     setState(() => isLoading = true);
     try {
-      final response = await http.get(Uri.parse("$baseUrl/admin/users"));
+      final url = query.isEmpty
+          ? "$baseUrl/admin/users"
+          : "$baseUrl/admin/users?q=$query";
+      
+      final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         setState(() {
           users = jsonDecode(response.body);
+          filteredUsers = users;
           isLoading = false;
         });
       }
@@ -39,6 +46,78 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     }
   }
 
+  Future<void> deleteUser(int userId, String username) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/admin/users/$userId"),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("User '$username' removed successfully"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        fetchUsers(); // Refresh list
+      } else {
+        final data = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data["message"] ?? "Failed to delete user"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Error deleting user"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void showDeleteConfirmation(int userId, String username) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0B1E2D),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          "Remove User?",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          "Are you sure you want to remove user '$username'? This will delete all their data permanently.",
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "Cancel",
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              deleteUser(userId, username);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text("Remove"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -48,6 +127,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           children: [
             _header(),
             const SizedBox(height: 20),
+            _searchBar(),
+            const SizedBox(height: 20),
             Expanded(
               child: isLoading
                   ? const Center(
@@ -55,15 +136,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                         color: Color(0xFF2FE6D1),
                       ),
                     )
-                  : users.isEmpty
+                  : filteredUsers.isEmpty
                       ? _emptyState()
                       : RefreshIndicator(
-                          onRefresh: fetchUsers,
+                          onRefresh: () => fetchUsers(),
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: users.length,
+                            itemCount: filteredUsers.length,
                             itemBuilder: (context, index) {
-                              final user = users[index];
+                              final user = filteredUsers[index];
                               return _userCard(user);
                             },
                           ),
@@ -86,7 +167,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
-            "All Users",
+            "Manage Users",
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
@@ -94,6 +175,53 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ---------------- SEARCH BAR ----------------
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+            ),
+            child: TextField(
+              controller: searchController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "Search by username or phone...",
+                hintStyle: const TextStyle(color: Colors.white54),
+                border: InputBorder.none,
+                icon: const Icon(Icons.search, color: Color(0xFF2FE6D1)),
+                suffixIcon: searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.white54),
+                        onPressed: () {
+                          searchController.clear();
+                          fetchUsers();
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (value) {
+                if (value.isEmpty) {
+                  fetchUsers();
+                } else {
+                  fetchUsers(value);
+                }
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -207,6 +335,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "₹${user['balance'].toStringAsFixed(2)}",
+                            style: const TextStyle(
+                              color: Color(0xFF2FE6D1),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -219,6 +356,25 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () => showDeleteConfirmation(
+                        user['id'],
+                        user['username'],
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],

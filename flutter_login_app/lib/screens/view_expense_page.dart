@@ -11,35 +11,35 @@ class ViewExpensesPage extends StatefulWidget {
 }
 
 class _ViewExpensesPageState extends State<ViewExpensesPage> {
-  List<dynamic> expenses = [];
+  List<dynamic> transactions = [];
   bool isLoading = true;
   final String baseUrl = "http://10.0.2.2:5000";
 
   @override
   void initState() {
     super.initState();
-    fetchExpenses();
+    fetchTransactions();
   }
 
-  Future<void> fetchExpenses() async {
+  Future<void> fetchTransactions() async {
     setState(() => isLoading = true);
     try {
       final response = await http.get(Uri.parse("$baseUrl/expenses"));
       if (response.statusCode == 200) {
         setState(() {
-          expenses = jsonDecode(response.body);
+          transactions = jsonDecode(response.body);
           isLoading = false;
         });
       }
     } catch (e) {
       setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to load expenses")),
+        const SnackBar(content: Text("Failed to load transactions")),
       );
     }
   }
 
-  Future<void> deleteExpense(int id) async {
+  Future<void> deleteTransaction(int id) async {
     try {
       final response = await http.delete(
         Uri.parse("$baseUrl/expenses/$id"),
@@ -48,15 +48,15 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Expense deleted successfully"),
+            content: Text("Transaction deleted successfully"),
             backgroundColor: Colors.green,
           ),
         );
-        fetchExpenses();
+        fetchTransactions();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Failed to delete expense"),
+            content: Text("Failed to delete transaction"),
             backgroundColor: Colors.red,
           ),
         );
@@ -64,19 +64,20 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Error deleting expense"),
+          content: Text("Error deleting transaction"),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  void showEditDialog(Map<String, dynamic> expense) {
+  void showEditDialog(Map<String, dynamic> transaction) {
     final amountController =
-        TextEditingController(text: expense['amount'].toString());
-    String selectedCategory = expense['category'];
+        TextEditingController(text: transaction['amount'].toString());
+    String selectedCategory = transaction['category'];
+    String selectedType = transaction['type'];
 
-    final categories = [
+    final expenseCategories = [
       "Food",
       "Shopping",
       "Transport",
@@ -86,167 +87,216 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
       "Other",
     ];
 
+    final incomeCategories = [
+      "Salary",
+      "Freelance",
+      "Business",
+      "Investment",
+      "Gift",
+      "Other",
+    ];
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF0B1E2D),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            "Edit Expense",
-            style: TextStyle(color: Colors.white),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: "Amount",
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFF2FE6D1)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedCategory,
-                dropdownColor: const Color(0xFF0B1E2D),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: "Category",
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFF2FE6D1)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                items: categories
-                    .map((c) => DropdownMenuItem(
-                          value: c,
-                          child: Text(c),
-                        ))
-                    .toList(),
-                onChanged: (val) {
-                  setDialogState(() => selectedCategory = val!);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                "Cancel",
-                style: TextStyle(color: Colors.white54),
-              ),
+        builder: (context, setDialogState) {
+          final categories =
+              selectedType == "expense" ? expenseCategories : incomeCategories;
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF0B1E2D),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                // Validate amount
-                if (amountController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please enter amount"),
-                      backgroundColor: Colors.red,
+            title: const Text(
+              "Edit Transaction",
+              style: TextStyle(color: Colors.white),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Type Toggle
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setDialogState(() {
+                            selectedType = "expense";
+                            selectedCategory = expenseCategories[0];
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: selectedType == "expense"
+                                ? Colors.red.withOpacity(0.3)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: selectedType == "expense"
+                                  ? Colors.red
+                                  : Colors.white30,
+                            ),
+                          ),
+                          child: Text(
+                            "Expense",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: selectedType == "expense"
+                                  ? Colors.red
+                                  : Colors.white54,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  );
-                  return;
-                }
-
-                // Parse amount
-                final amount = double.tryParse(amountController.text.trim());
-                if (amount == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please enter valid number"),
-                      backgroundColor: Colors.red,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setDialogState(() {
+                            selectedType = "income";
+                            selectedCategory = incomeCategories[0];
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: selectedType == "income"
+                                ? Colors.green.withOpacity(0.3)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: selectedType == "income"
+                                  ? Colors.green
+                                  : Colors.white30,
+                            ),
+                          ),
+                          child: Text(
+                            "Income",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: selectedType == "income"
+                                  ? Colors.green
+                                  : Colors.white54,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  );
-                  return;
-                }
-
-                if (amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Amount must be greater than 0"),
-                      backgroundColor: Colors.red,
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: "Amount",
+                    labelStyle: const TextStyle(color: Colors.white54),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide:
+                          BorderSide(color: Colors.white.withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                  return;
-                }
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Color(0xFF2FE6D1)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  dropdownColor: const Color(0xFF0B1E2D),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: "Category",
+                    labelStyle: const TextStyle(color: Colors.white54),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide:
+                          BorderSide(color: Colors.white.withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Color(0xFF2FE6D1)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: categories
+                      .map((c) => DropdownMenuItem(
+                            value: c,
+                            child: Text(c),
+                          ))
+                      .toList(),
+                  onChanged: (val) {
+                    setDialogState(() => selectedCategory = val!);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  "Cancel",
+                  style: TextStyle(color: Colors.white54),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (amountController.text.isEmpty) return;
 
-                try {
-                  print("Updating expense ID: ${expense['id']}");
-                  print("Amount: $amount");
-                  print("Category: $selectedCategory");
-                  
-                  final response = await http.put(
-                    Uri.parse("$baseUrl/expenses/${expense['id']}"),
-                    headers: {"Content-Type": "application/json"},
-                    body: jsonEncode({
-                      "amount": amount,
-                      "category": selectedCategory,
-                    }),
-                  );
+                  try {
+                    final response = await http.put(
+                      Uri.parse("$baseUrl/expenses/${transaction['id']}"),
+                      headers: {"Content-Type": "application/json"},
+                      body: jsonEncode({
+                        "amount": double.parse(amountController.text),
+                        "category": selectedCategory,
+                        "type": selectedType,
+                      }),
+                    );
 
-                  print("Response status: ${response.statusCode}");
-                  print("Response body: ${response.body}");
-
-                  if (response.statusCode == 200) {
-                    Navigator.pop(context);
+                    if (response.statusCode == 200) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Transaction updated successfully"),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      fetchTransactions();
+                    } else {
+                      final data = jsonDecode(response.body);
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        SnackBar(
+                          content: Text(data["message"] ?? "Failed to update"),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  } catch (e) {
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       const SnackBar(
-                        content: Text("Expense updated successfully"),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    fetchExpenses();
-                  } else {
-                    Navigator.pop(context);
-                    final data = jsonDecode(response.body);
-                    ScaffoldMessenger.of(this.context).showSnackBar(
-                      SnackBar(
-                        content: Text(data["message"] ?? "Failed to update: ${response.statusCode}"),
+                        content: Text("Error updating transaction"),
                         backgroundColor: Colors.red,
                       ),
                     );
                   }
-                } catch (e) {
-                  print("Error: $e");
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    SnackBar(
-                      content: Text("Error: $e"),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2FE6D1),
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2FE6D1),
+                ),
+                child: const Text(
+                  "Update",
+                  style: TextStyle(color: Color(0xFF061417)),
+                ),
               ),
-              child: const Text(
-                "Update",
-                style: TextStyle(color: Color(0xFF061417)),
-              ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -267,16 +317,16 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                         color: Color(0xFF2FE6D1),
                       ),
                     )
-                  : expenses.isEmpty
+                  : transactions.isEmpty
                       ? _emptyState()
                       : RefreshIndicator(
-                          onRefresh: fetchExpenses,
+                          onRefresh: fetchTransactions,
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: expenses.length,
+                            itemCount: transactions.length,
                             itemBuilder: (context, index) {
-                              final expense = expenses[index];
-                              return _expenseCard(expense);
+                              final transaction = transactions[index];
+                              return _transactionCard(transaction);
                             },
                           ),
                         ),
@@ -287,7 +337,6 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     );
   }
 
-  // ---------------- HEADER ----------------
   Widget _header() {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -298,7 +347,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
-            "All Expenses",
+            "All Transactions",
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
@@ -310,7 +359,6 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     );
   }
 
-  // ---------------- EMPTY STATE ----------------
   Widget _emptyState() {
     return Center(
       child: Column(
@@ -323,7 +371,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
           ),
           SizedBox(height: 16),
           Text(
-            "No expenses yet",
+            "No transactions yet",
             style: TextStyle(
               color: Colors.white54,
               fontSize: 18,
@@ -331,7 +379,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
           ),
           SizedBox(height: 8),
           Text(
-            "Add your first expense to get started",
+            "Add your first transaction to get started",
             style: TextStyle(
               color: Colors.white38,
               fontSize: 14,
@@ -342,12 +390,12 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     );
   }
 
-  // ---------------- EXPENSE CARD ----------------
-  Widget _expenseCard(Map<String, dynamic> expense) {
+  Widget _transactionCard(Map<String, dynamic> transaction) {
+    final bool isIncome = transaction['type'] == 'income';
     IconData categoryIcon;
-    Color categoryColor;
+    Color categoryColor = isIncome ? Colors.green : Colors.red;
 
-    switch (expense['category']) {
+    switch (transaction['category']) {
       case 'Food':
         categoryIcon = Icons.restaurant;
         categoryColor = Colors.orange;
@@ -370,11 +418,19 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
         break;
       case 'Health':
         categoryIcon = Icons.medical_services;
+        categoryColor = Colors.teal;
+        break;
+      case 'Salary':
+      case 'Freelance':
+      case 'Business':
+      case 'Investment':
+      case 'Gift':
+        categoryIcon = Icons.attach_money;
         categoryColor = Colors.green;
         break;
       default:
         categoryIcon = Icons.category;
-        categoryColor = Colors.grey;
+        categoryColor = isIncome ? Colors.green : Colors.grey;
     }
 
     return Container(
@@ -409,17 +465,42 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        expense['category'],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            transaction['category'],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isIncome
+                                  ? Colors.green.withOpacity(0.2)
+                                  : Colors.red.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isIncome ? "Income" : "Expense",
+                              style: TextStyle(
+                                color: isIncome ? Colors.green : Colors.red,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "${expense['date']} • ${expense['time']}",
+                        "${transaction['date']} • ${transaction['time']}",
                         style: const TextStyle(
                           color: Colors.white54,
                           fontSize: 12,
@@ -432,9 +513,9 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      "₹${expense['amount'].toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        color: Colors.redAccent,
+                      "${isIncome ? '+' : '-'}₹${transaction['amount'].toStringAsFixed(2)}",
+                      style: TextStyle(
+                        color: isIncome ? Colors.green : Colors.redAccent,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
@@ -443,7 +524,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                     Row(
                       children: [
                         InkWell(
-                          onTap: () => showEditDialog(expense),
+                          onTap: () => showEditDialog(transaction),
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
@@ -468,7 +549,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 title: const Text(
-                                  "Delete Expense?",
+                                  "Delete Transaction?",
                                   style: TextStyle(color: Colors.white),
                                 ),
                                 content: const Text(
@@ -486,7 +567,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                                   ElevatedButton(
                                     onPressed: () {
                                       Navigator.pop(context);
-                                      deleteExpense(expense['id']);
+                                      deleteTransaction(transaction['id']);
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.red,

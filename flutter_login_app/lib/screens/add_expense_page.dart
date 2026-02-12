@@ -13,16 +13,26 @@ class AddExpensePage extends StatefulWidget {
 class _AddExpensePageState extends State<AddExpensePage> {
   final amountController = TextEditingController();
   String selectedCategory = "Food";
+  String selectedType = "expense"; // 'income' or 'expense'
 
   final String baseUrl = "http://10.0.2.2:5000";
 
-  final categories = [
+  final expenseCategories = [
     "Food",
     "Shopping",
     "Transport",
     "Entertainment",
     "Bills",
     "Health",
+    "Other",
+  ];
+
+  final incomeCategories = [
+    "Salary",
+    "Freelance",
+    "Business",
+    "Investment",
+    "Gift",
     "Other",
   ];
 
@@ -38,6 +48,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
             children: [
               _header(),
               const SizedBox(height: 30),
+              _typeToggle(),
+              const SizedBox(height: 20),
               _glassCard(child: _amountInput()),
               const SizedBox(height: 20),
               _glassCard(child: _categoryDropdown()),
@@ -58,15 +70,106 @@ class _AddExpensePageState extends State<AddExpensePage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        const Text(
-          "Add Expense",
-          style: TextStyle(
+        Text(
+          selectedType == "expense" ? "Add Expense" : "Add Income",
+          style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
         ),
       ],
+    );
+  }
+
+  // ---------------- TYPE TOGGLE ----------------
+  Widget _typeToggle() {
+    return _glassCard(
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  selectedType = "expense";
+                  selectedCategory = expenseCategories[0];
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: selectedType == "expense"
+                      ? Colors.red.withOpacity(0.3)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.trending_down,
+                      color: selectedType == "expense"
+                          ? Colors.red
+                          : Colors.white54,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Expense",
+                      style: TextStyle(
+                        color: selectedType == "expense"
+                            ? Colors.red
+                            : Colors.white54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  selectedType = "income";
+                  selectedCategory = incomeCategories[0];
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: selectedType == "income"
+                      ? Colors.green.withOpacity(0.3)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.trending_up,
+                      color: selectedType == "income"
+                          ? Colors.green
+                          : Colors.white54,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Income",
+                      style: TextStyle(
+                        color: selectedType == "income"
+                            ? Colors.green
+                            : Colors.white54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -86,6 +189,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
   // ---------------- CATEGORY ----------------
   Widget _categoryDropdown() {
+    final categories =
+        selectedType == "expense" ? expenseCategories : incomeCategories;
+
     return DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: selectedCategory,
@@ -112,17 +218,19 @@ class _AddExpensePageState extends State<AddExpensePage> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: addExpenseToServer,
+        onPressed: addTransactionToServer,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2FE6D1),
+          backgroundColor: selectedType == "expense"
+              ? Colors.red
+              : const Color(0xFF2FE6D1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text(
-          "Add Expense",
-          style: TextStyle(
-            color: Color(0xFF061417),
+        child: Text(
+          selectedType == "expense" ? "Add Expense" : "Add Income",
+          style: const TextStyle(
+            color: Colors.white,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -132,7 +240,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   // ---------------- API ----------------
-  Future<void> addExpenseToServer() async {
+  Future<void> addTransactionToServer() async {
     if (amountController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enter amount")),
@@ -146,13 +254,18 @@ class _AddExpensePageState extends State<AddExpensePage> {
       body: jsonEncode({
         "amount": double.parse(amountController.text),
         "category": selectedCategory,
+        "type": selectedType,
       }),
     );
 
     if (response.statusCode == 201) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Expense added successfully"),
+        SnackBar(
+          content: Text(
+            selectedType == "expense"
+                ? "Expense added successfully"
+                : "Income added successfully",
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -162,7 +275,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       final data = jsonDecode(response.body);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(data["message"] ?? "Failed to add expense"),
+          content: Text(data["message"] ?? "Failed to add transaction"),
           backgroundColor: Colors.red,
         ),
       );
