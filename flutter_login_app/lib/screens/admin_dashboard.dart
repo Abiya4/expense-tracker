@@ -15,7 +15,7 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  final String baseUrl = "http://10.0.2.2:5000";
+  final String baseUrl = "http://10.0.5.13:5000";
   
   int totalUsers = 0;
   double totalExpenses = 0.0;

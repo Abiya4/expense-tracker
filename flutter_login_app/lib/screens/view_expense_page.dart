@@ -13,7 +13,7 @@ class ViewExpensesPage extends StatefulWidget {
 class _ViewExpensesPageState extends State<ViewExpensesPage> {
   List<dynamic> transactions = [];
   bool isLoading = true;
-  final String baseUrl = "http://10.0.2.2:5000";
+  final String baseUrl = "http://10.0.5.13:5000";
 
   @override
   void initState() {
@@ -210,7 +210,6 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                 DropdownButtonFormField<String>(
                   value: selectedCategory,
                   dropdownColor: const Color(0xFF0B1E2D),
-                  style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: "Category",
                     labelStyle: const TextStyle(color: Colors.white54),
@@ -225,9 +224,12 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                     ),
                   ),
                   items: categories
-                      .map((c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(c),
+                      .map((cat) => DropdownMenuItem(
+                            value: cat,
+                            child: Text(
+                              cat,
+                              style: const TextStyle(color: Colors.white),
+                            ),
                           ))
                       .toList(),
                   onChanged: (val) {
@@ -246,8 +248,6 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  if (amountController.text.isEmpty) return;
-
                   try {
                     final response = await http.put(
                       Uri.parse("$baseUrl/expenses/${transaction['id']}"),
@@ -259,9 +259,10 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                       }),
                     );
 
+                    Navigator.pop(context);
+
                     if (response.statusCode == 200) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(this.context).showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text("Transaction updated successfully"),
                           backgroundColor: Colors.green,
@@ -269,16 +270,16 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                       );
                       fetchTransactions();
                     } else {
-                      final data = jsonDecode(response.body);
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        SnackBar(
-                          content: Text(data["message"] ?? "Failed to update"),
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Failed to update transaction"),
                           backgroundColor: Colors.red,
                         ),
                       );
                     }
                   } catch (e) {
-                    ScaffoldMessenger.of(this.context).showSnackBar(
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text("Error updating transaction"),
                         backgroundColor: Colors.red,
@@ -289,10 +290,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2FE6D1),
                 ),
-                child: const Text(
-                  "Update",
-                  style: TextStyle(color: Color(0xFF061417)),
-                ),
+                child: const Text("Update"),
               ),
             ],
           );
@@ -337,6 +335,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     );
   }
 
+  // ---------------- HEADER ----------------
   Widget _header() {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -347,7 +346,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
-            "All Transactions",
+            "Transactions",
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
@@ -359,6 +358,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     );
   }
 
+  // ---------------- EMPTY STATE ----------------
   Widget _emptyState() {
     return Center(
       child: Column(
@@ -377,23 +377,16 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
               fontSize: 18,
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            "Add your first transaction to get started",
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 14,
-            ),
-          ),
         ],
       ),
     );
   }
 
+  // ---------------- TRANSACTION CARD ----------------
   Widget _transactionCard(Map<String, dynamic> transaction) {
     final bool isIncome = transaction['type'] == 'income';
     IconData categoryIcon;
-    Color categoryColor = isIncome ? Colors.green : Colors.red;
+    Color categoryColor;
 
     switch (transaction['category']) {
       case 'Food':

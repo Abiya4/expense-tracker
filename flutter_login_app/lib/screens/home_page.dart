@@ -18,7 +18,7 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
   double balance = 0.0;
   bool isLoading = true;
-  final String baseUrl = "http://10.0.2.2:5000";
+  final String baseUrl = "http://10.0.5.13:5000";
 
   @override
   void initState() {

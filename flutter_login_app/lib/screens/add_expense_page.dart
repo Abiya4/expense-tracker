@@ -15,7 +15,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   String selectedCategory = "Food";
   String selectedType = "expense"; // 'income' or 'expense'
 
-  final String baseUrl = "http://10.0.2.2:5000";
+  final String baseUrl = "http://10.0.5.13:5000";
 
   final expenseCategories = [
     "Food",

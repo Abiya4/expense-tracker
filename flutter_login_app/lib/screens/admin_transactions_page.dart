@@ -11,7 +11,7 @@ class AdminTransactionsPage extends StatefulWidget {
 }
 
 class _AdminTransactionsPageState extends State<AdminTransactionsPage> {
-  final String baseUrl = "http://10.0.2.2:5000";
+  final String baseUrl = "http://10.0.5.13:5000";
   List<dynamic> transactions = [];
   bool isLoading = true;
 

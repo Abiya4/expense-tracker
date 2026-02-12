@@ -21,7 +21,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> registerUser() async {
     try {
       final response = await http.post(
-        Uri.parse("http://10.0.2.2:5000/signup"),
+        Uri.parse("http://10.0.5.13:5000/signup"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "username": usernameController.text.trim(),
