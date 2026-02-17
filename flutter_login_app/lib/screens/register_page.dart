@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 
 import 'login_page.dart';
 
+import '../utils/constants.dart';
+
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -21,7 +23,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> registerUser() async {
     try {
       final response = await http.post(
-        Uri.parse("http://10.0.5.13:5000/signup"),
+        Uri.parse("${Constants.baseUrl}/signup"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "username": usernameController.text.trim(),

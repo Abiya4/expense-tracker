@@ -7,6 +7,8 @@ import 'home_page.dart';
 import 'admin_dashboard.dart';
 import 'register_page.dart';
 
+import '../utils/constants.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -21,7 +23,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> loginUser() async {
     try {
       final response = await http.post(
-        Uri.parse("http://10.0.5.13:5000/login"),
+        Uri.parse("${Constants.baseUrl}/login"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "username": usernameController.text.trim(),
@@ -33,23 +35,24 @@ class _LoginPageState extends State<LoginPage> {
 
       if (response.statusCode == 200 && data["success"] == true) {
         // Route based on role
-        if (data["role"] == "admin") {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const AdminDashboard(),
-            ),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => HomePage(
-                username: usernameController.text.trim(),
+          if (data["role"] == "admin") {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AdminDashboard(),
               ),
-            ),
-          );
-        }
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => HomePage(
+                  username: usernameController.text.trim(),
+                  userId: data['id'],
+                ),
+              ),
+            );
+          }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

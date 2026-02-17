@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../utils/constants.dart';
+
 class ViewExpensesPage extends StatefulWidget {
   const ViewExpensesPage({super.key});
 
@@ -11,9 +13,10 @@ class ViewExpensesPage extends StatefulWidget {
 }
 
 class _ViewExpensesPageState extends State<ViewExpensesPage> {
-  List<dynamic> transactions = [];
+  List<dynamic> pendingTransactions = [];
+  List<dynamic> confirmedTransactions = [];
   bool isLoading = true;
-  final String baseUrl = "http://10.0.5.13:5000";
+  final String baseUrl = Constants.baseUrl;
 
   @override
   void initState() {
@@ -26,16 +29,24 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     try {
       final response = await http.get(Uri.parse("$baseUrl/expenses"));
       if (response.statusCode == 200) {
+        final List<dynamic> allTransactions = jsonDecode(response.body);
         setState(() {
-          transactions = jsonDecode(response.body);
+          pendingTransactions = allTransactions
+              .where((t) => t['status'] == 'pending')
+              .toList();
+          confirmedTransactions = allTransactions
+              .where((t) => t['status'] != 'pending') // specific or null (legacy)
+              .toList();
           isLoading = false;
         });
       }
     } catch (e) {
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to load transactions")),
-      );
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to load transactions")),
+        );
+      }
     }
   }
 
@@ -71,10 +82,47 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     }
   }
 
-  void showEditDialog(Map<String, dynamic> transaction) {
+  Future<void> confirmTransaction(int id, double amount, String category, String type) async {
+    try {
+      final response = await http.put(
+        Uri.parse("$baseUrl/expenses/$id"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "amount": amount,
+          "category": category,
+          "type": type,
+          "status": "confirmed"
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Transaction confirmed!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        fetchTransactions();
+      } else {
+        throw Exception("Failed to confirm");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Error confirming transaction"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void showEditDialog(Map<String, dynamic> transaction, {bool isConfirmation = false}) {
     final amountController =
         TextEditingController(text: transaction['amount'].toString());
     String selectedCategory = transaction['category'];
+    if (selectedCategory == "Uncategorized" || selectedCategory == "Unknown") {
+       selectedCategory = "Food"; // Default to Food if uncategorized
+    }
     String selectedType = transaction['type'];
 
     final expenseCategories = [
@@ -103,18 +151,26 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
           final categories =
               selectedType == "expense" ? expenseCategories : incomeCategories;
 
+          // Ensure selectedCategory is in the list
+          if (!categories.contains(selectedCategory)) {
+             selectedCategory = categories[0];
+          }
+
           return AlertDialog(
             backgroundColor: const Color(0xFF0B1E2D),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text(
-              "Edit Transaction",
-              style: TextStyle(color: Colors.white),
+            title: Text(
+              isConfirmation ? "Confirm Transaction" : "Edit Transaction",
+              style: const TextStyle(color: Colors.white),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (isConfirmation) ...[
+                   /* Merchant display removed */
+                ],
                 // Type Toggle
                 Row(
                   children: [
@@ -240,63 +296,63 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  if (isConfirmation) {
+                    deleteTransaction(transaction['id']);
+                  }
+                  Navigator.pop(context);
+                },
                 child: const Text(
                   "Cancel",
                   style: TextStyle(color: Colors.white54),
                 ),
               ),
               ElevatedButton(
-                onPressed: () async {
-                  try {
-                    final response = await http.put(
-                      Uri.parse("$baseUrl/expenses/${transaction['id']}"),
-                      headers: {"Content-Type": "application/json"},
-                      body: jsonEncode({
-                        "amount": double.parse(amountController.text),
-                        "category": selectedCategory,
-                        "type": selectedType,
-                      }),
-                    );
-
-                    Navigator.pop(context);
-
-                    if (response.statusCode == 200) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Transaction updated successfully"),
-                          backgroundColor: Colors.green,
-                        ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (isConfirmation) {
+                      confirmTransaction(
+                          transaction['id'],
+                          double.parse(amountController.text),
+                          selectedCategory,
+                          selectedType
                       );
-                      fetchTransactions();
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Failed to update transaction"),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Error updating transaction"),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                  } else {
+                      _updateTransaction(transaction['id'], double.parse(amountController.text), selectedCategory, selectedType, transaction['status']);
                   }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2FE6D1),
                 ),
-                child: const Text("Update"),
+                child: Text(isConfirmation ? "Confirm" : "Update"),
               ),
             ],
           );
         },
       ),
     );
+  }
+
+  Future<void> _updateTransaction(int id, double amount, String category, String type, String currentStatus) async {
+       try {
+        final response = await http.put(
+          Uri.parse("$baseUrl/expenses/$id"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "amount": amount,
+            "category": category,
+            "type": type,
+          }),
+        );
+        if (response.statusCode == 200) {
+           fetchTransactions();
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Updated!"), backgroundColor: Colors.green));
+        } else {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed update"), backgroundColor: Colors.red));
+        }
+       } catch(e) {
+           // Error handling
+       }
   }
 
   @override
@@ -307,7 +363,7 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
         child: Column(
           children: [
             _header(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             Expanded(
               child: isLoading
                   ? const Center(
@@ -315,19 +371,45 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
                         color: Color(0xFF2FE6D1),
                       ),
                     )
-                  : transactions.isEmpty
-                      ? _emptyState()
-                      : RefreshIndicator(
-                          onRefresh: fetchTransactions,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: transactions.length,
-                            itemBuilder: (context, index) {
-                              final transaction = transactions[index];
-                              return _transactionCard(transaction);
-                            },
-                          ),
-                        ),
+                  : RefreshIndicator(
+                      onRefresh: fetchTransactions,
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        children: [
+                           if (pendingTransactions.isNotEmpty) ...[
+                               const Text(
+                                   "PENDING ACTIONS",
+                                   style: TextStyle(
+                                       color: Colors.orangeAccent, 
+                                       fontWeight: FontWeight.bold, 
+                                       letterSpacing: 1.2
+                                   ),
+                               ),
+                               const SizedBox(height: 10),
+                               ...pendingTransactions.map((t) => _pendingTransactionCard(t)).toList(),
+                               const SizedBox(height: 20),
+                               const Divider(color: Colors.white24),
+                               const SizedBox(height: 10),
+                           ],
+                           
+                           if (confirmedTransactions.isNotEmpty) ...[
+                               const Text(
+                                   "HISTORY",
+                                   style: TextStyle(
+                                       color: Colors.white54, 
+                                       fontWeight: FontWeight.bold,
+                                       letterSpacing: 1.2
+                                   ),
+                               ),
+                               const SizedBox(height: 10),
+                               ...confirmedTransactions.map((t) => _transactionCard(t)).toList(),
+                           ],
+                           
+                           if (pendingTransactions.isEmpty && confirmedTransactions.isEmpty)
+                               SizedBox(height: 400, child: _emptyState()),
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -382,7 +464,39 @@ class _ViewExpensesPageState extends State<ViewExpensesPage> {
     );
   }
 
-  // ---------------- TRANSACTION CARD ----------------
+  // ---------------- VISUAL CARDS ----------------
+  
+  Widget _pendingTransactionCard(Map<String, dynamic> transaction) {
+      return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+              border: Border.all(color: Colors.orangeAccent.withOpacity(0.5)),
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.orange.withOpacity(0.05),
+          ),
+          child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              leading: const CircleAvatar(
+                  backgroundColor: Colors.orangeAccent,
+                  child: Icon(Icons.priority_high, color: Colors.black),
+              ),
+              title: Text(
+                  "Pending: ${transaction['category']}", // This likely holds merchant info from backend sync
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                  "${transaction['date']} • ₹${transaction['amount']}",
+                  style: const TextStyle(color: Colors.white70),
+              ),
+              trailing: ElevatedButton(
+                  onPressed: () => showEditDialog(transaction, isConfirmation: true),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+                  child: const Text("Verify", style: TextStyle(color: Colors.black)),
+              ),
+          ),
+      );
+  }
+
   Widget _transactionCard(Map<String, dynamic> transaction) {
     final bool isIncome = transaction['type'] == 'income';
     IconData categoryIcon;

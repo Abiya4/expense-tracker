@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../utils/constants.dart';
+
 class AddExpensePage extends StatefulWidget {
   const AddExpensePage({super.key});
 
@@ -15,7 +17,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   String selectedCategory = "Food";
   String selectedType = "expense"; // 'income' or 'expense'
 
-  final String baseUrl = "http://10.0.5.13:5000";
+  final String baseUrl = Constants.baseUrl;
 
   final expenseCategories = [
     "Food",

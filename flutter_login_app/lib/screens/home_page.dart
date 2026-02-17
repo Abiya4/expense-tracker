@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'add_expense_page.dart';
 import 'view_expense_page.dart';
+import '../services/sms_service.dart';
+
+import '../utils/constants.dart';
 
 class HomePage extends StatefulWidget {
   final String username;
+  final int userId;
 
-  const HomePage({super.key, required this.username});
+  const HomePage({super.key, required this.username, required this.userId});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -18,12 +22,13 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
   double balance = 0.0;
   bool isLoading = true;
-  final String baseUrl = "http://10.0.5.13:5000";
+  final String baseUrl = Constants.baseUrl;
 
   @override
   void initState() {
     super.initState();
     fetchBalance();
+    SmsService(context, widget.userId, onRefresh: fetchBalance).initListener();
   }
 
   Future<void> fetchBalance() async {
