@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'add_expense_page.dart';
 import 'view_expense_page.dart';
+import 'insights_page.dart';
 import '../services/sms_service.dart';
 
 import '../utils/constants.dart';
@@ -215,17 +216,25 @@ class _HomePageState extends State<HomePage> {
           children: [
             Expanded(
               child: _glassCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Icon(Icons.trending_up, color: Colors.green),
-                    SizedBox(height: 8),
-                    Text("Track Spending",
-                        style: TextStyle(color: Colors.white54)),
-                    SizedBox(height: 4),
-                    Text("View all expenses",
-                        style: TextStyle(color: Colors.white, fontSize: 12)),
-                  ],
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => InsightsPage(userId: widget.userId)),
+                    );
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Icon(Icons.trending_up, color: Colors.green),
+                      SizedBox(height: 8),
+                      Text("Track Spending",
+                          style: TextStyle(color: Colors.white54)),
+                      SizedBox(height: 4),
+                      Text("View all expenses",
+                          style: TextStyle(color: Colors.white, fontSize: 12)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -285,13 +294,18 @@ class _HomePageState extends State<HomePage> {
             context,
             MaterialPageRoute(builder: (_) => const AddExpensePage()),
           ).then((_) => fetchBalance());
+        } else if (index == 1) {
+             Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => InsightsPage(userId: widget.userId)),
+          );
         } else {
           setState(() => _currentIndex = index);
         }
       },
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-        BottomNavigationBarItem(icon: Icon(Icons.flag), label: "Goals"),
+        BottomNavigationBarItem(icon: Icon(Icons.pie_chart), label: "Insights"),
         BottomNavigationBarItem(
           icon: CircleAvatar(
             radius: 22,
