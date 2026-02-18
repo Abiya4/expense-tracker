@@ -56,7 +56,7 @@ class SmsService {
       for (var sms in smsList) {
         String body = sms['body'] ?? "";
         // Parse using the same logic
-        var parsed = _parseSms(body);
+        var parsed = parseSms(body);
         if (parsed != null) {
           expensesToSync.add(parsed);
         }
@@ -85,20 +85,33 @@ class SmsService {
   }
 
   // Helper Key Logic for Parsing
-  Map<String, dynamic>? _parseSms(String body) {
+  // Made public and static for testing
+  static Map<String, dynamic>? parseSms(String body) {
     // ========== ONLY CHECK: MASKED ACCOUNT AND NO LINKS ==========
     // HAM = Has masked account like X1234, XX1234, XXX5678 (uppercase X + digits)
+    // OR "sent to" + 12-digit reference number
     // AND does NOT contain any URLs (phishing protection)
     RegExp maskedAccountPattern = RegExp(r'X+\d{3,4}');
     bool hasMaskedAccount = maskedAccountPattern.hasMatch(body);
+
+    // New logic: "sent to" ... 12 digit ref number
+    // New logic: "sent to" ... 12 digit ref number
+    // Allow for words between sent and to (e.g. "sent via UPI to")
+    RegExp sentToPattern = RegExp(r'sent\b.+?\bto\b', caseSensitive: false);
+    bool hasSentTo = sentToPattern.hasMatch(body);
+    RegExp refNoPattern = RegExp(r'\b\d{12}\b'); // Exactly 12 digits
+    bool hasRefNo = refNoPattern.hasMatch(body);
     
     // URL Check
     List<String> urlPatterns = ['http://', 'https://', 'www.', 'bit.ly', 'tinyurl', '.com', '.in'];
     bool hasUrl = urlPatterns.any((pattern) => body.toLowerCase().contains(pattern));
 
-    if (!hasMaskedAccount || hasUrl) {
+    // Valid HAM logic
+    bool isValidHam = (hasMaskedAccount || (hasSentTo && hasRefNo)) && !hasUrl;
+
+    if (!isValidHam) {
       if (hasUrl) print('❌ SMS REJECTED: Contains phishing link');
-      else print('❌ SMS REJECTED: No masked account');
+      else if (!hasMaskedAccount && !(hasSentTo && hasRefNo)) print('❌ SMS REJECTED: No masked account or reference number pattern');
       return null;
     }
 
@@ -180,7 +193,7 @@ class SmsService {
     if (body == null) return;
     print("Processing Foreground SMS: $body");
     
-    var parsed = _parseSms(body);
+    var parsed = parseSms(body);
     if (parsed == null) return;
 
     if ((parsed['amount'] as double) > 0) {

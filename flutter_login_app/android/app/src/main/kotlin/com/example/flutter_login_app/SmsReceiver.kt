@@ -52,13 +52,28 @@ class SmsReceiver : BroadcastReceiver() {
         
         // ========== ONLY CHECK: MASKED ACCOUNT AND NO LINKS ==========
         // HAM = Has masked account like X1234, XX1234, XXX5678 (uppercase X + digits)
+        // OR "sent to" + 12-digit reference number
         // AND does NOT contain any URLs
         val maskedAccountPattern = Regex("X+\\d{3,4}")
         val hasMaskedAccount = maskedAccountPattern.containsMatchIn(body)
-        android.util.Log.d("SMS_FILTER", "Has masked account (X+digits): $hasMaskedAccount")
         
-        if (!hasMaskedAccount) {
-            android.util.Log.d("SMS_FILTER", "REJECTED: No masked account")
+        // New logic: "sent to" ... 12 digit ref number
+        // Relaxed regex: just "sent" followed by "to" with anything in between
+        val sentToPattern = Regex("sent.+?to", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+        val hasSentTo = sentToPattern.containsMatchIn(body)
+        
+        // Relaxed Ref number: just look for 12 continuous digits, boundary checks might be failing on some chars
+        val refNoPattern = Regex("\\d{12}")
+        val hasRefNo = refNoPattern.containsMatchIn(body)
+
+        android.util.Log.d("SMS_FILTER", "Has masked account: $hasMaskedAccount")
+        android.util.Log.d("SMS_FILTER", "Has SentTo pattern: $hasSentTo")
+        android.util.Log.d("SMS_FILTER", "Has RefNo: $hasRefNo")
+        
+        val isValidHam = (hasMaskedAccount || (hasSentTo && hasRefNo))
+
+        if (!isValidHam) {
+            android.util.Log.d("SMS_FILTER", "REJECTED: No masked account or valid 'sent to' pattern")
             return false
         }
 

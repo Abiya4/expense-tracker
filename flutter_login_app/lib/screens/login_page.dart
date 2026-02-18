@@ -20,7 +20,15 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  bool _isLoading = false;
+
   Future<void> loginUser() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final response = await http.post(
         Uri.parse("${Constants.baseUrl}/login"),
@@ -29,11 +37,12 @@ class _LoginPageState extends State<LoginPage> {
           "username": usernameController.text.trim(),
           "password": passwordController.text.trim(),
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data["success"] == true) {
+        if (!mounted) return;
         // Route based on role
           if (data["role"] == "admin") {
             Navigator.pushReplacement(
@@ -54,6 +63,7 @@ class _LoginPageState extends State<LoginPage> {
             );
           }
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(data["message"] ?? "Login failed"),
@@ -62,12 +72,19 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Cannot connect to server"),
+        SnackBar(
+          content: Text("Connection error: $e"),
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -141,21 +158,28 @@ class _LoginPageState extends State<LoginPage> {
                           width: double.infinity,
                           height: 54,
                           child: ElevatedButton(
-                            onPressed: loginUser,
+                            onPressed: _isLoading ? null : loginUser,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF2FE6D1),
+                              disabledBackgroundColor: const Color(0xFF2FE6D1).withOpacity(0.5),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            child: const Text(
-                              "Login",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF061417),
-                              ),
-                            ),
+                            child: _isLoading 
+                              ? const SizedBox(
+                                  width: 24, 
+                                  height: 24, 
+                                  child: CircularProgressIndicator(color: Colors.black)
+                                )
+                              : const Text(
+                                  "Login",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF061417),
+                                  ),
+                                ),
                           ),
                         ),
 
